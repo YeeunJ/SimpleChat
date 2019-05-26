@@ -36,6 +36,7 @@ class ChatThread extends Thread{
 	private BufferedReader br;
 	private HashMap<String, PrintWriter> hm;
 	private boolean initFlag = false;
+	private PrintWriter pw_now;//계속 사용할 것이므로 현재 스레드의 printwriter를 먼저 만들어줌
 	
 	//constructor->새로운 sock가 생길때 pw, br을 만들어서 그 sock의 내용을 받고 hm에 저장해준다
 	public ChatThread(Socket sock, HashMap<String, PrintWriter> hm){
@@ -47,6 +48,7 @@ class ChatThread extends Thread{
 			PrintWriter pw = new PrintWriter(new OutputStreamWriter(sock.getOutputStream()));//출력 method ->각 sock로 메세지를 출력한다.
 			br = new BufferedReader(new InputStreamReader(sock.getInputStream())); //각 sock가 보낸 메시지를 읽는다. 
 			id = br.readLine();//Client로부터 받은 메세지 id에 저장
+			this.pw_now = pw;
 			
 			broadcast(id + " entered.");//id entered 라는 내용을 sock에 보내기
 			System.out.println("[Server] User (" + id + ") entered.");//server의 콘솔 창에 들어왔다고 출력
@@ -65,11 +67,11 @@ class ChatThread extends Thread{
 			String line = null;
 			//키보드를 통해 입력되는 것에 따라서 종료하거나 귓속말을 하거나 전체로 출력함
 			while((line = br.readLine()) != null){
-				if(prohibit_word(line))
+				if(prohibit_word(line)) //만약 금지된 단어가 포함되어있으면 출력하지 않고 넘어감.
 					continue;
 				if(line.equals("/quit"))
 					break;
-				if(line.indexOf("/userlist") == 0){
+				if(line.indexOf("/userlist") == 0){ //userlist 보여줌
 					send_userlist();
 				}else if(line.indexOf("/to ") == 0){
 					sendmsg(line);//sendmsg를 사용해서 특정 sock에게 전달
@@ -108,13 +110,13 @@ class ChatThread extends Thread{
 	
 	//msg를 모든 sock에서 받을 수 있도록 보내주는 method
 	public void broadcast(String msg){
-		Object obj = hm.get(id);
-		PrintWriter pw_now = (PrintWriter)obj;
 		synchronized(hm){//스레드 사이에 동기화 후에 hm안에  모든 sock에 msg보내줌
 			Collection<PrintWriter> collection = hm.values(); //여러 원소들을 담을 수 있는 자료구조, 크기제한 없음-> hm에 저장한 내용을 모두 
 			Iterator<PrintWriter> iter = collection.iterator(); //iterator : 콜렉션 안의 원소 하나하나에 접근하게 해주는 역할
+			
 			while(iter.hasNext()){//읽어 올 요소가 남아있는지 확인하는 메소드 있으면 true -> 읽어올 요소가 있으면 계속 반복
 				PrintWriter pw = (PrintWriter)iter.next();//다음으로 넘겨주며 hm에 저장되어있었던 pw 정보를 가지고 인스턴스화 해서 출력해줌
+				//hm에 저장되어있는 pw가 현재 스레드의 printwriter인 pw_now와 같지 않은 경우에만 msg를 보내줌
 				if(pw != pw_now) {
 					pw.println(msg);//pw가 sock로 msg를 보내줌
 					pw.flush();//
@@ -126,28 +128,29 @@ class ChatThread extends Thread{
 	
 	//현재까지의 사용자 id와 사용자 수 보여주는 method
 	public void send_userlist(){
-		synchronized(hm){
-			Object obj = hm.get(id);
-			PrintWriter pw = (PrintWriter)obj;
-			pw.println("<userlist Info>");
-			pw.flush();//전달 -> 그 sock에서만 메세지를 받아서 출력해줄 수 있음
+		synchronized(hm){//hm을 동기화
+			//동기화된 hm을 가지고 id인 key값을 현재 스레드에 출력
+			//출력할 때 앞에서 만든 현재 스레드의 printwriter 사용
+			pw_now.println("<userlist Info>");
+			pw_now.flush();
 			for(Object key : hm.keySet()) {
-					pw.println(key);
-					pw.flush();//전달 -> 그 sock에서만 메세지를 받아서 출력해줄 수 있음
+					pw_now.println(key);
+					pw_now.flush();
 			}
-			pw.println("count : "+ hm.size());
-			pw.flush();
+			//끝났으면 hm의 size를 출력하면 현재 사용자 수를 출력한 것
+			pw_now.println("count : "+ hm.size());
+			pw_now.flush();
 		}
 	}
 	
+	//금지된 단어가 있는지 확인하는 method
 	public boolean prohibit_word(String msg) {
 		String []p_word = {"dog", "drive", "peach", "stupid", "monkey"};
+		//금지된 단어가 부분에라도 포함되면 위에서 만든 현재 아이디의 printwriter에 금지되었다고 말하기
 		for(String s: p_word) {
 			if(msg.indexOf(s) != -1) {
-				Object obj = hm.get(id);
-				PrintWriter pw = (PrintWriter)obj;
-				pw.println("Contains banned words. You can not this message.");
-				pw.flush();
+				pw_now.println("Contains banned words. You can not this message.");
+				pw_now.flush();
 				
 				return true;
 			}
