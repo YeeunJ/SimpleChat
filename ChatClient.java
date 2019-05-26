@@ -1,3 +1,6 @@
+//https://github.com/YeeunJ/SimpleChat/blob/master/ChatClient.java
+//변경사항 없음..!!
+
 import java.net.*;
 import java.io.*;
 
