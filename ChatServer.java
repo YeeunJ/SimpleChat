@@ -75,7 +75,7 @@ class ChatThread extends Thread{
 					send_userlist();
 				}else if(line.indexOf("/to ") == 0){
 					sendmsg(line);//sendmsg를 사용해서 특정 sock에게 전달
-				}else
+				}else 
 					broadcast(id + " : " + line);//broadcast 사용해서 모든 sock에게 전달
 			}
 		}catch(Exception ex){//예외사항이 생기면 에러를 출력하고
